@@ -1,3 +1,5 @@
+/*this project requir ultrasonic sensor , servo motor , DC motor and L293D IC 
+some jumper wires are too required */
 #include <Servo.h>
 
 int trigpin = 7;
