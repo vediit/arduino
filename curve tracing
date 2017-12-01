@@ -1,4 +1,4 @@
-/*curve tracing 
+/*curve tracing bot 
 using L293d */
 
 #define omot1  10
