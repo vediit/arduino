@@ -75,8 +75,8 @@ void setup() {
   if (y > 0) {
     while (counterM1 == y * constant ) {
       pd();
-      analogWrite(omotM1, pwmM1 - errorM1);
-      analogWrite(omotM2, pwmM2 - errorM2);
+      analogWrite(omotM1, pwmM1 - constant * teM1);
+      analogWrite(omotM2, pwmM2 - constant * teM2);
 
       digitalWrite(cmot1M1, HIGH);
       digitalWrite(cmot2M1, LOW);
@@ -87,8 +87,8 @@ void setup() {
   else {
     while (counterM1 == -y * constant ) {
       pd();
-      analogWrite(omotM1, pwmM1 - errorM1);
-      analogWrite(omotM2, pwmM2 - errorM2);
+      analogWrite(omotM1, pwmM1 - constant * teM1);
+      analogWrite(omotM2, pwmM2 - constant * teM2);
 
       digitalWrite(cmot1M1, LOW);
       digitalWrite(cmot2M1, HIGH);
@@ -136,8 +136,8 @@ void loop() {
   pwmM2 = map(veloM2, 0, 30.16, 153, 255);
 
   pd();
-  analogWrite(omotM1, pwmM1 - errorM1);
-  analogWrite(omotM2, pwmM2 - errorM2);
+  analogWrite(omotM1, pwmM1 - constant * teM1);
+  analogWrite(omotM2, pwmM2 - constant * teM2);
 
   digitalWrite(cmot1M1, HIGH);
   digitalWrite(cmot2M1, LOW);
@@ -259,6 +259,17 @@ void countBM2 () {
 
 void pd() {
   peM1 = speedM1 - veloM1; 
+  peM2 = speedM2 - veloM2;
+  ieM1 += peM1;
+  ieM2 += peM2;
+  if (teM1 == 0){
+    ieM1 = 0;
+  }
+  if (teM2 == 0){
+    ieM2 = 0;
+  }
+  teM1 = KP * peM1 + KI * ieM1;
+  teM2 = KP * peM2 + KI * ieM2;
 }
 //void errorpid () {
 //
