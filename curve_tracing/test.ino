@@ -20,7 +20,7 @@ int pwmM2 = 200;
 #define activeregion 3
 #define permissiableError 67
 #define constant 1
-
+float speedM1 , speedM2;
 
 //pid controller variable declaration
 int error;
@@ -31,6 +31,10 @@ int errorT = 0;
 #define KP 0.2 //values are still not checked by hit n trial 
 #define KI 0
 #define KD 0
+float peM1 , peM2;
+float deM1 , deM2;
+float lpeM1 , lpeM2;
+float teM1 , teM2;
 
 //function variable declaration
 float x = 0;
@@ -38,6 +42,7 @@ float y , ddy;
 double theta, dy;
 double adjustmentValue = 0;
 double veloM1 , veloM2;
+#define ymax 400;
 
 //SERVO
 Servo servo;
@@ -72,9 +77,13 @@ void setup() {
   theta = atan(dy);
 
   //initial displacement
+  if (y > ymax){
+    ltcr();
+  }
+  
   if (y > 0) {
     while (counterM1 == y * constant ) {
-      pd();
+
       analogWrite(omotM1, pwmM1 - constant * teM1);
       analogWrite(omotM2, pwmM2 - constant * teM2);
 
@@ -90,15 +99,16 @@ void setup() {
       analogWrite(omotM1, pwmM1 - constant * teM1);
       analogWrite(omotM2, pwmM2 - constant * teM2);
 
-      digitalWrite(cmot1M1, LOW);
-      digitalWrite(cmot2M1, HIGH);
-      digitalWrite(cmot1M2, LOW);
-      digitalWrite(cmot2M2, HIGH);
+      digitalWrite(cmot1M1, HIGH);
+      digitalWrite(cmot2M1, LOW);
+      digitalWrite(cmot1M2, HIGH);
+      digitalWrite(cmot2M2, LOW);
     }
   }
   //initial angle
   theta = theta > 1.5708 ? theta + 90 : 90 - theta; // 1.5708 = pi/2
   while (counterM1 < theta * constant) {
+    pid();
     analogWrite(omotM1, pwmM1);
     analogWrite(omotM2, pwmM2);
 
@@ -123,30 +133,34 @@ void loop() {
 
   if (ddy > 0) {
     adjustmentValue = ddy / pow((1 + sq(dy)), 1.5);
-    veloM1 = 30.16;
-    veloM2 = 30.16 * (1 - 10 * adjustmentValue) / (1 + 10 * adjustmentValue);
+    veloM1 = 24;
+    veloM2 = 24 * (1 - 10 * adjustmentValue) / (1 + 10 * adjustmentValue);
   }
   else {
     adjustmentValue = ddy / pow((1 + sq(dy)), 1.5);
-    veloM2 = 30.16;
-    veloM1 = 30.16 * (1 - 10 * adjustmentValue) / (1 + 10 * adjustmentValue);
+    veloM2 = 24;
+    veloM1 = 24 * (1 - 10 * adjustmentValue) / (1 + 10 * adjustmentValue);
   }
 
-  pwmM1 = map(veloM1, 0, 30.16, 153, 255);
-  pwmM2 = map(veloM2, 0, 30.16, 153, 255);
+  pwmM1 = map(veloM1, 0, 24, 153, 255);
+  pwmM2 = map(veloM2, 0, 24, 153, 255);
 
   pd();
-  analogWrite(omotM1, pwmM1 - constant * teM1);
-  analogWrite(omotM2, pwmM2 - constant * teM2);
+  analogWrite(omotM1, pwmM1 - teM1);
+  analogWrite(omotM2, pwmM2 - teM2);
 
   digitalWrite(cmot1M1, HIGH);
   digitalWrite(cmot2M1, LOW);
   digitalWrite(cmot1M2, HIGH);
   digitalWrite(cmot2M2, LOW);
 
-  speedM1 = (counterM1 - countIM1) / t * 1000000 ;
+  speedM1 = (counterM1 - countIM1) / t * 1000000;
   speedM2 = (counterM2 - countIM2) / t * 1000000;
   x += (counterM1 - countIM1) * cos(theta) * constant;
+
+  if ( y > ymax || y > -ymax ) {
+    ltcr();
+  }
 
   // if ((counterM1 + counterM2) < -permissiableValue || (counterM2 + counterM1) > permissiableValue ) {
   //
@@ -257,38 +271,85 @@ void countBM2 () {
   }
 }
 
-void pd() {
-  peM1 = speedM1 - veloM1; 
-  peM2 = speedM2 - veloM2;
-  ieM1 += peM1;
-  ieM2 += peM2;
-  if (teM1 == 0){
-    ieM1 = 0;
+void ltcr() {
+  servo.write(60);
+  delay(500);
+
+  countIM1 = counterM1;
+  while (counterM1 - countIM1 < atan(dy) * constant) {
+    pid();
+    analogWrite(omotM1, pwmM1);
+    analogWrite(omotM2, pwmM2);
+
+    digitalWrite(cmot1M1, LOW);
+    digitalWrite(cmot2M1, HIGH);
+    digitalWrite(cmot1M2, HIGH);
+    digitalWrite(cmot2M2, LOW);
   }
-  if (teM2 == 0){
-    ieM2 = 0;
+
+  while ( y < ymax  || y > - ymax ) {
+
+    countIM1 = counterM1;
+    countIM2 = counterM2;
+
+    pid();
+    analogWrite(omotM1, pwmM1 - constant * teM1);
+    analogWrite(omotM2, pwmM2 - constant * teM2);
+
+    digitalWrite(cmot1M1, HIGH);
+    digitalWrite(cmot2M1, LOW);
+    digitalWrite(cmot1M2, HIGH);
+    digitalWrite(cmot2M2, LOW);
+
+    x += (counterM1 - countIM1) * 0.0150796;
   }
-  teM1 = KP * peM1 + KI * ieM1;
-  teM2 = KP * peM2 + KI * ieM2;
+
+  servo.write(30);
+
 }
-//void errorpid () {
-//
-//  error = abs(counterM1 - counterM2);
-//  errorDifferential = error - errorLast;
-//
-//  if (errorT != 0 && errorIntegral < activeregion) {
-//    errorIntegral += error;
-//  }
-//  else{
-//      errorIntegral = 0;
-//  }
-//  if (errorT > 40){
-//    errorT = 40;
-//  }
-//
-//  errorT = KP * error + KI * errorIntegral + KD * errorDifferential;
-//  errorLast = error;
-//
-//}
+
+void pd() {
+
+  peM1 = speedM1 - veloM1;
+  peM2 = speedM2 - veloM2;
+
+  deM1 = peM1 - lpeM1;
+  deM2 = peM2 - lpeM2;
+
+  teM1 = KP * peM1 + KD * deM1;
+  teM2 = KP * peM2 + KD * deM2;
+
+  if (teM1 > 50 ){
+    teM1 = 50;
+  }
+  if (teM2 > 50 ){{
+    teM2 = 50;
+  }
+
+  lpeM1 = peM1;
+  lpeM2 = peM2;
+
+}
+void pid () {
+
+  error = abs(counterM1 - counterM2);
+  errorDifferential = error - errorLast;
+
+  if (errorT != 0 && errorIntegral < activeregion) {
+    errorIntegral += error;
+  }
+  else {
+    errorIntegral = 0;
+  }
+  if (errorT > 40) {
+    errorT = 40;
+  }
+  if (errorT == 0 ){
+    errorIntergal = 0;
+  }
+
+  errorT = KP * error + KI * errorIntegral + KD * errorDifferential;
+  errorLast = error;
+}
 
 
